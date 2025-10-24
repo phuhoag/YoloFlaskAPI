@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>🎯 YOLO Object Detection - Flask API</title>
+    <link rel="stylesheet" href="/static/css/style.css?v=3&nocache=true">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🎯 YOLO Object Detection</h1>
+            <p>Nhận diện vật thể trong ảnh và video bằng YOLOv11</p>
+            <div class="model-status">
+                <span class="status-indicator" id="model-status">🔄 Đang kiểm tra model...</span>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="nav-tabs">
+            <button class="tab-button active" data-tab="image">📸 Nhận diện Ảnh</button>
+            <button class="tab-button" data-tab="video">🎥 Nhận diện Video</button>
+            <button class="tab-button" data-tab="history">📋 Lịch sử</button>
+            <button class="tab-button" data-tab="stats">📊 Thống kê</button>
+        </nav>
+
+        <!-- Image Detection Tab -->
+        <div id="image-tab" class="tab-content active">
+            <div class="upload-section">
+                <div class="section-header">
+                    <h2>📸 Nhận diện vật thể trong ảnh</h2>
+                </div>
+                
+                <form id="image-form" enctype="multipart/form-data">
+                    <div class="upload-area" onclick="document.getElementById('image-input').click()">
+                        <input type="file" id="image-input" name="image" accept="image/*" style="display: none;">
+                        <div class="upload-placeholder">
+                            <h3>🖼️ Kéo thả ảnh vào đây hoặc click để chọn</h3>
+                            <p>Hỗ trợ: JPG, PNG, GIF, BMP, WebP (tối đa 100MB)</p>
+                        </div>
+                    </div>
+                    
+                    <div id="image-preview" class="file-preview" style="display: none;"></div>
+                    
+                    <div class="controls">
+                        <label for="image-confidence">Độ tin cậy tối thiểu:</label>
+                        <input type="range" id="image-confidence" name="confidence" min="0.1" max="1.0" step="0.1" value="0.3">
+                        <span id="image-confidence-value">30%</span>
+                        <button type="submit" class="btn-primary">
+                            🔍 Bắt đầu nhận diện vật thể
+                        </button>
+                        <small style="display: block; margin-top: 10px; color: #64748b; font-style: italic;">
+                            💡 Tip: Để nhận diện nhiều vật thể hơn, hãy giảm độ tin cậy xuống 20-30%
+                        </small>
+                    </div>
+                </form>
+                
+                <div id="image-loading" class="loading" style="display: none;">
+                    <div class="loading-content">
+                        <div class="spinner"></div>
+                        <h3>🤖 Đang nhận diện vật thể trong ảnh...</h3>
+                        <p id="image-loading-text">Đang phân tích với YOLO model</p>
+                        <div class="progress-bar">
+                            <div class="progress-fill"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="image-result" class="result-section"></div>
+            </div>
+        </div>
+
+        <!-- Video Detection Tab -->
+        <div id="video-tab" class="tab-content">
+            <div class="upload-section">
+                <div class="section-header">
+                    <h2>🎥 Nhận diện vật thể trong video</h2>
+                </div>
+                
+                <form id="video-form" enctype="multipart/form-data">
+                    <div class="upload-area" onclick="document.getElementById('video-input').click()">
+                        <input type="file" id="video-input" name="video" accept="video/*" style="display: none;">
+                        <div class="upload-placeholder">
+                            <h3>🎬 Kéo thả video vào đây hoặc click để chọn</h3>
+                            <p>Hỗ trợ: MP4, AVI, MOV, MKV, WebM, FLV (tối đa 100MB)</p>
+                        </div>
+                    </div>
+                    
+                    <div id="video-preview" class="file-preview" style="display: none;"></div>
+                    
+                    <div class="controls">
+                        <label for="video-confidence">Độ tin cậy tối thiểu:</label>
+                        <input type="range" id="video-confidence" name="confidence" min="0.1" max="1.0" step="0.1" value="0.3">
+                        <span id="video-confidence-value">30%</span>
+                        
+                        <button type="button" class="btn-primary streaming-btn" onclick="startVideoStreaming()">
+                            🔴 Xem Realtime
+                        </button>
+                        
+                        <button type="submit" class="btn-primary">
+                            🎯 Nhận diện chuyển động trong video
+                        </button>
+                        <small style="display: block; margin-top: 10px; color: #64748b; font-style: italic;">
+                            💡 Tip: Để nhận diện nhiều vật thể hơn, hãy giảm độ tin cậy xuống 20-30%
+                        </small>
+                    </div>
+                </form>
+                
+                <div id="video-loading" class="loading" style="display: none;">
+                    <div class="loading-content">
+                        <div class="spinner"></div>
+                        <h3>🎬 Đang nhận diện vật thể trong video...</h3>
+                        <p id="video-loading-text">Đang phân tích từng frame...</p>
+                        <div class="progress-bar">
+                            <div class="progress-fill"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="video-result" class="result-section"></div>
+            </div>
+        </div>
+
+        <!-- History Tab -->
+        <div id="history-tab" class="tab-content">
+            <div class="history-section">
+                <div class="section-header">
+                    <h2>📋 Lịch sử nhận diện</h2>
+                    <div class="history-controls">
+                        <button id="refresh-history" class="btn-control btn-refresh" title="Làm mới lịch sử">
+                            <span class="icon">🔄</span>
+                            Làm mới
+                        </button>
+                        <button id="clear-history" class="btn-control btn-danger" title="Xóa tất cả lịch sử">
+                            <span class="icon">🗑️</span>
+                            Xóa tất cả
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="history-loading" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>📂 Đang tải lịch sử...</p>
+                </div>
+                
+                <div id="history-list" class="history-list"></div>
+            </div>
+        </div>
+
+        <!-- Statistics Tab -->
+        <div id="stats-tab" class="tab-content">
+            <div class="stats-section">
+                <h2>📊 Thống kê tổng quan</h2>
+                
+                <div id="stats-loading" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>📈 Đang tải thống kê...</p>
+                </div>
+                
+                <!-- Modern Statistics Dashboard -->
+                <div id="statistics-content" class="modern-stats-dashboard">
+                    <!-- Overview Cards -->
+                    <div class="stats-overview">
+                        <div class="stat-card primary">
+                            <div class="stat-icon-debug">
+                                📊
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="total-files">0</h3>
+                                <p>Tổng files đã xử lý</p>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card success">
+                            <div class="stat-icon-debug">
+                                🎯
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="total-objects">0</h3>
+                                <p>Tổng vật thể phát hiện</p>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card warning">
+                            <div class="stat-icon-debug">
+                                ⚡
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="avg-processing-time">0s</h3>
+                                <p>Thời gian xử lý trung bình</p>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card info">
+                            <div class="stat-icon-debug">
+                                📈
+                            </div>
+                            <div class="stat-content">
+                                <h3 id="accuracy-rate">0%</h3>
+                                <p>Độ chính xác trung bình</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Main Content Grid -->
+                    <div class="stats-main-grid">
+                        <!-- Top Objects Chart -->
+                        <div class="stats-panel">
+                            <div class="panel-header">
+                                <h3>🏆 Top vật thể phổ biến</h3>
+                                <span class="panel-badge">Trending</span>
+                            </div>
+                            <div class="panel-content">
+                                <div id="top-objects-chart" class="chart-container">
+                                    <!-- Dynamic content will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- File Types Distribution -->
+                        <div class="stats-panel">
+                            <div class="panel-header">
+                                <h3>📁 Phân bố loại file</h3>
+                                <span class="panel-badge">Distribution</span>
+                            </div>
+                            <div class="panel-content">
+                                <div id="file-types-chart" class="chart-container">
+                                    <!-- Dynamic content will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Activity -->
+                    <div class="stats-panel full-width">
+                        <div class="panel-header">
+                            <h3>🕒 Hoạt động gần đây</h3>
+                            <span class="panel-badge">Live</span>
+                        </div>
+                        <div class="panel-content">
+                            <div id="recent-activity" class="activity-timeline">
+                                <!-- Dynamic content will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast notification -->
+        <div id="toast" class="toast"></div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="/static/js/main.js?v=3&nocache=true"></script>
+</body>
+</html>

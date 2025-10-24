@@ -1,0 +1,10 @@
+{
+    "python.terminal.executeInFileDir": true,
+    "python.defaultInterpreterPath": "C:/Users/admin/anaconda3/python.exe",
+    "code-runner.runInTerminal": true,
+    "code-runner.executorMap": {
+        "python": "C:/Users/admin/anaconda3/python.exe"
+    },
+    "code-runner.clearPreviousOutput": false,
+    "code-runner.showExecutionMessage": false
+}
